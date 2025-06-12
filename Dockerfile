@@ -88,11 +88,10 @@ RUN apk add --no-cache \
   ca-certificates \
   nodejs \
   npm \
+  su-exec \
   && rm -rf /var/cache/apk/* \
   && addgroup -g 1001 -S mcpuser \
-  && adduser -S mcpuser -u 1001 -G mcpuser \
-  && addgroup docker \
-  && adduser mcpuser docker
+  && adduser -S mcpuser -u 1001 -G mcpuser
 
 WORKDIR /app
 
@@ -102,13 +101,12 @@ COPY --from=binary-downloader /code-sandbox-mcp ./code-sandbox-mcp
 
 # Copy minimal configuration
 COPY mcp-server-as-go/mcp_servers.config.json ./
+COPY mcp-server-as-go/docker-entrypoint.sh ./
 
 # Setup permissions
-RUN chmod +x ./mcp-http-server ./code-sandbox-mcp && \
+RUN chmod +x ./mcp-http-server ./code-sandbox-mcp ./docker-entrypoint.sh && \
   mkdir -p /tmp/mcp-servers && \
   chown -R mcpuser:mcpuser /app /tmp/mcp-servers
-
-USER mcpuser
 
 # Minimal environment
 #ENV MCP_CONFIG_FILE=mcp_servers.config.json \
@@ -124,4 +122,5 @@ USER mcpuser
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["./mcp-http-server"]

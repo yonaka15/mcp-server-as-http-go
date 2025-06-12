@@ -5,8 +5,11 @@
       "command": "/app/code-sandbox-mcp",
       "args": [],
       "env": {
-        "DOCKER_HOST": "unix:///var/run/docker.sock",
-        "NO_UPDATE": "true"
+        "DOCKER_HOST": "tcp://docker-daemon:2376",
+        "NO_UPDATE": "true",
+        "DEBUG": "true",
+        "RUST_LOG": "debug",
+        "DEFAULT_PYTHON_IMAGE": "python:3.12-slim"
       },
 
       "description": "Secure code sandbox environment for executing code within Docker containers"
