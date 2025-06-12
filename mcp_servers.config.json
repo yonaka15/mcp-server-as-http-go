@@ -8,11 +8,7 @@
         "DOCKER_HOST": "unix:///var/run/docker.sock",
         "NO_UPDATE": "true"
       },
-      "runtime_config": {
-        "node": {
-          "version": ">=18.0.0"
-        }
-      },
+
       "description": "Secure code sandbox environment for executing code within Docker containers"
     }
   }

@@ -1,46 +1,46 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mcp-http-server:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: mcp-server-as-go/Dockerfile
     container_name: mcp-http-server
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     environment:
       # Core Configuration
-      - MCP_CONFIG_FILE=mcp_servers.config.json
-      - MCP_SERVER_NAME=code-sandbox
-      - MCP_RUNTIME_TYPE=node
-      - PORT=${PORT:-3000}
-      
+      - MCP_CONFIG_FILE=${MCP_CONFIG_FILE}
+      - MCP_SERVER_NAME=${MCP_SERVER_NAME}
+      - PORT=${PORT}
+
       # Authentication
       - HTTP_API_KEY=${HTTP_API_KEY}
       - DISABLE_AUTH=${DISABLE_AUTH:-true}
-      
+
       # Docker
       - DOCKER_HOST=unix:///var/run/docker.sock
-      
+
       # Logging
       - RUST_LOG=${RUST_LOG:-info}
-    
+
     volumes:
       - mcp_cache:/tmp/mcp-servers:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+
     restart: unless-stopped
-    
+
     # Lightweight resource limits
     deploy:
       resources:
         limits:
           memory: 256M
-          cpus: '0.3'
+          cpus: "0.3"
         reservations:
           memory: 128M
-          cpus: '0.1'
+          cpus: "0.1"
 
 volumes:
   mcp_cache:
     driver: local
+
