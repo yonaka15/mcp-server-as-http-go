@@ -2,12 +2,6 @@
 .env
 .env.local
 
-# Backup files (from migration)
-*.backup
-src.backup/
-target.backup/
-core.backup/
-
 # Docker build artifacts
 .dockerignore
 
@@ -17,23 +11,14 @@ core.backup/
 *.swp
 *.swo
 
-# macOS
+# System
 .DS_Store
-
-# Logs
 *.log
 
-# MCP Server temporary files
-/tmp/
-/mcp-servers/
+# MCP temporary files
+/tmp/mcp-servers/
 
-# npm/Node.js (for development/testing if needed)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Docker volumes (if mounted locally)
+# Docker volumes
 volumes/
 data/
 cache/

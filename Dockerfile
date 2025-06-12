@@ -1,7 +1,7 @@
-# MCP HTTP Server (Node.js Runtime) - Multi-platform Docker Build
-# Automatically detects platform and builds appropriate binary
+# MCP HTTP Server - Code Sandbox (Lightweight)
+# Minimal setup with binary runtime only
 
-# Stage 1: Platform-aware Rust builder
+# Stage 1: Rust builder for HTTP core
 FROM --platform=${BUILDPLATFORM} rust:1.85-alpine AS rust-builder
 
 # Install build dependencies
@@ -12,11 +12,11 @@ RUN apk add --no-cache \
     git \
     pkgconfig
 
-# Build arguments for cross-compilation
+# Build arguments
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
-# Set target based on platform
+# Set target for cross-compilation
 RUN case "${TARGETPLATFORM}" in \
       "linux/amd64") \
         echo "x86_64-unknown-linux-musl" > /target.txt && \
@@ -31,17 +31,15 @@ RUN case "${TARGETPLATFORM}" in \
         ;; \
     esac
 
-# Set environment for static linking
+# Static linking configuration
 ENV RUSTFLAGS="-C target-feature=+crt-static" \
     PKG_CONFIG_ALL_STATIC=1 \
     PKG_CONFIG_ALL_DYNAMIC=0
 
 WORKDIR /build
-
-# Clone the repository
 RUN git clone https://github.com/yonaka15/mcp-server-as-http-core.git .
 
-# Build for the target platform
+# Build optimized binary
 RUN RUST_TARGET=$(cat /target.txt) && \
     cargo build \
     --release \
@@ -52,49 +50,65 @@ RUN RUST_TARGET=$(cat /target.txt) && \
     --config 'profile.release.strip = true' && \
     cp target/${RUST_TARGET}/release/mcp-server-as-http-core /mcp-http-server
 
-# Stage 2: Runtime (Alpine Node.js)
-FROM node:18-alpine
+# Stage 2: Download code-sandbox-mcp binary
+FROM --platform=${BUILDPLATFORM} alpine:latest AS binary-downloader
 
-# Install runtime dependencies
+ARG TARGETPLATFORM
+
+# Install minimal tools
+RUN apk add --no-cache curl jq
+
+# Determine download architecture
+RUN case "${TARGETPLATFORM}" in \
+      "linux/amd64") echo "linux-amd64" > /arch.txt ;; \
+      "linux/arm64") echo "linux-arm64" > /arch.txt ;; \
+      *) echo "Unsupported: ${TARGETPLATFORM}" && exit 1 ;; \
+    esac
+
+# Download latest binary
+RUN ARCH=$(cat /arch.txt) && \
+    URL=$(curl -s https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest | \
+          jq -r ".assets[] | select(.name | contains(\"code-sandbox-mcp-${ARCH}\")) | .browser_download_url") && \
+    echo "Downloading: $URL" && \
+    curl -L "$URL" -o /code-sandbox-mcp && \
+    chmod +x /code-sandbox-mcp
+
+# Stage 3: Minimal runtime
+FROM alpine:latest
+
+# Install minimal runtime dependencies
 RUN apk add --no-cache \
     curl \
-    git \
+    docker-cli \
     ca-certificates \
-    && rm -rf /var/cache/apk/*
-
-# Create non-root user
-RUN addgroup -g 1001 -S mcpuser && \
-    adduser -S mcpuser -u 1001 -G mcpuser
+    nodejs \
+    npm \
+    && rm -rf /var/cache/apk/* \
+    && addgroup -g 1001 -S mcpuser \
+    && adduser -S mcpuser -u 1001 -G mcpuser
 
 WORKDIR /app
 
-# Copy the binary from builder
+# Copy binaries
 COPY --from=rust-builder /mcp-http-server ./mcp-http-server
+COPY --from=binary-downloader /code-sandbox-mcp ./code-sandbox-mcp
 
-# Make executable and verify
-RUN chmod +x ./mcp-http-server && \
-    ./mcp-http-server --version || echo "Binary ready"
+# Copy minimal configuration
+COPY mcp_servers.config.json ./
 
-# Copy configuration files
-COPY mcp_servers.config.json .env.example ./
-
-# Setup directories
-RUN mkdir -p /app/.npm-cache /app/.npm-config /tmp/mcp-servers && \
+# Setup permissions
+RUN chmod +x ./mcp-http-server ./code-sandbox-mcp && \
+    mkdir -p /tmp/mcp-servers && \
     chown -R mcpuser:mcpuser /app /tmp/mcp-servers
 
-# Switch to non-root user
 USER mcpuser
 
-# Environment configuration
-ENV NPM_CONFIG_CACHE=/app/.npm-cache \
-    XDG_CONFIG_HOME=/app/.npm-config \
-    NPM_CONFIG_UPDATE_NOTIFIER=false \
-    NPM_CONFIG_FUND=false \
-    MCP_CONFIG_FILE=mcp_servers.config.json \
-    MCP_SERVER_NAME=brave-search \
+# Minimal environment
+ENV MCP_CONFIG_FILE=mcp_servers.config.json \
+    MCP_SERVER_NAME=code-sandbox \
     MCP_RUNTIME_TYPE=node \
-    NODE_PACKAGE_MANAGER=npm \
-    WORK_DIR=/tmp/mcp-servers \
+    PORT=3000 \
+    DOCKER_HOST=unix:///var/run/docker.sock \
     RUST_LOG=info
 
 EXPOSE 3000
