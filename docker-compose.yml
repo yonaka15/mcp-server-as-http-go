@@ -28,20 +28,17 @@ services:
     container_name: mcp-http-server
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
+    
+    # 🚀 効率的な環境変数管理: .envファイルを自動読み込み
+    env_file:
+      - .env
+    
     environment:
-      # Core Configuration
-      - MCP_CONFIG_FILE=${MCP_CONFIG_FILE}
-      - MCP_SERVER_NAME=${MCP_SERVER_NAME}
-      - PORT=${PORT}
-
-      # Authentication
-      - HTTP_API_KEY=${HTTP_API_KEY}
-      - DISABLE_AUTH=${DISABLE_AUTH:-true}
-
-      # Docker (DinD経由)
+      # コンテナ固有の設定のみ個別指定
+      # Docker (DinD経由) - コンテナ間通信用の固定設定
       - DOCKER_HOST=tcp://docker-daemon:2376
       
-      # プロキシ設定の無効化
+      # プロキシ設定の無効化 - コンテナネットワーク固有
       - HTTP_PROXY=
       - HTTPS_PROXY=
       - http_proxy=
@@ -49,16 +46,13 @@ services:
       - NO_PROXY=localhost,127.0.0.1,docker.internal,*.docker.internal,docker-daemon
       - no_proxy=localhost,127.0.0.1,docker.internal,*.docker.internal,docker-daemon
 
-      # Logging
-      - RUST_LOG=debug
-
     volumes:
       - mcp_cache:/tmp/mcp-servers:rw
 
     depends_on:
       - docker-daemon
     # condition: service_healthy を削除
-    
+
     networks:
       - mcp_network
 
@@ -83,4 +77,3 @@ volumes:
 networks:
   mcp_network:
     driver: bridge
-

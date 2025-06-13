@@ -8,8 +8,7 @@
         "DOCKER_HOST": "tcp://docker-daemon:2376",
         "NO_UPDATE": "true",
         "DEBUG": "true",
-        "RUST_LOG": "debug",
-        "DEFAULT_PYTHON_IMAGE": "python:3.12-slim"
+        "RUST_LOG": "debug"
       },
 
       "description": "Secure code sandbox environment for executing code within Docker containers"
