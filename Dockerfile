@@ -44,6 +44,9 @@ RUN git clone https://github.com/yonaka15/mcp-server-as-http-core.git .
 # For development with local source, use:
 # COPY mcp-server-as-http-core .
 
+# Copy MCP configuration file
+COPY ${MCP_CONFIG_FILE} ./
+
 # Build optimized binary
 RUN RUST_TARGET=$(cat /target.txt) && \
   cargo build \
@@ -99,9 +102,11 @@ WORKDIR /app
 COPY --from=rust-builder /mcp-http-server ./mcp-http-server
 COPY --from=binary-downloader /code-sandbox-mcp ./code-sandbox-mcp
 
-# Copy minimal configuration
-COPY mcp-server-as-go/mcp_servers.config.json ./
-COPY mcp-server-as-go/docker-entrypoint.sh ./
+# Copy MCP configuration file
+COPY ${MCP_CONFIG_FILE} ./
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
 
 # Setup permissions
 RUN chmod +x ./mcp-http-server ./code-sandbox-mcp ./docker-entrypoint.sh && \
