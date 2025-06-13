@@ -28,16 +28,16 @@ services:
     container_name: mcp-http-server
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-    
+
     # 🚀 効率的な環境変数管理: .envファイルを自動読み込み
     env_file:
       - .env
-    
+
     environment:
       # コンテナ固有の設定のみ個別指定
       # Docker (DinD経由) - コンテナ間通信用の固定設定
       - DOCKER_HOST=tcp://docker-daemon:2376
-      
+
       # プロキシ設定の無効化 - コンテナネットワーク固有
       - HTTP_PROXY=
       - HTTPS_PROXY=
