@@ -1,26 +1,6 @@
 version: "3.8"
 
 services:
-  # Docker-in-Docker service
-  docker-daemon:
-    image: docker:26-dind
-    container_name: mcp-docker-daemon
-    privileged: true
-    environment:
-      - DOCKER_TLS_CERTDIR=
-    volumes:
-      - mcp_docker_data:/var/lib/docker
-    networks:
-      - mcp_network
-    command: ["dockerd", "--host=tcp://0.0.0.0:2376", "--tls=false"]
-    # ヘルスチェックを削除してシンプルに
-    # healthcheck:
-    #   test: ["CMD", "docker", "version"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-
-  # MCP HTTP Server
   mcp-http-server:
     build:
       context: .
@@ -28,52 +8,15 @@ services:
     container_name: mcp-http-server
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-
-    # 🚀 効率的な環境変数管理: .envファイルを自動読み込み
     env_file:
       - .env
-
     environment:
-      # コンテナ固有の設定のみ個別指定
-      # Docker (DinD経由) - コンテナ間通信用の固定設定
-      - DOCKER_HOST=tcp://docker-daemon:2376
-
-      # プロキシ設定の無効化 - コンテナネットワーク固有
-      - HTTP_PROXY=
-      - HTTPS_PROXY=
-      - http_proxy=
-      - https_proxy=
-      - NO_PROXY=localhost,127.0.0.1,docker.internal,*.docker.internal,docker-daemon
-      - no_proxy=localhost,127.0.0.1,docker.internal,*.docker.internal,docker-daemon
-
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
       - mcp_cache:/tmp/mcp-servers:rw
-
-    depends_on:
-      - docker-daemon
-    # condition: service_healthy を削除
-
-    networks:
-      - mcp_network
-
     restart: unless-stopped
-
-    # Lightweight resource limits
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.3"
-        reservations:
-          memory: 128M
-          cpus: "0.1"
 
 volumes:
   mcp_cache:
     driver: local
-  mcp_docker_data:
-    driver: local
-
-networks:
-  mcp_network:
-    driver: bridge

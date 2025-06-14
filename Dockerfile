@@ -1,10 +1,10 @@
-# MCP HTTP Server - Code Sandbox (Lightweight)
-# Minimal setup with binary runtime only
+# MCP HTTP Server - Code Sandbox (Ultra Lightweight)
+# Single container with Rust HTTP Core + Go environment for code-sandbox-mcp
 
 # Stage 1: Rust builder for HTTP core
-FROM --platform=${BUILDPLATFORM} rust:1.85-alpine AS rust-builder
+FROM --platform=${BUILDPLATFORM} rust:alpine AS rust-builder
 
-# Install build dependencies
+# Install build dependencies for Rust compilation
 RUN apk add --no-cache \
   musl-dev \
   openssl-dev \
@@ -12,7 +12,7 @@ RUN apk add --no-cache \
   git \
   pkgconfig
 
-# Build arguments
+# Build arguments for cross-compilation
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -31,23 +31,17 @@ RUN case "${TARGETPLATFORM}" in \
   ;; \
   esac
 
-# Static linking configuration
+# Static linking configuration for minimal binary
 ENV RUSTFLAGS="-C target-feature=+crt-static" \
   PKG_CONFIG_ALL_STATIC=1 \
   PKG_CONFIG_ALL_DYNAMIC=0
 
 WORKDIR /build
 
-# Clone the latest version from GitHub
+# Clone the latest HTTP core from GitHub
 RUN git clone https://github.com/yonaka15/mcp-server-as-http-core.git .
 
-# For development with local source, use:
-# COPY mcp-server-as-http-core .
-
-# Copy MCP configuration file
-COPY ${MCP_CONFIG_FILE} ./
-
-# Build optimized binary
+# Build optimized Rust binary
 RUN RUST_TARGET=$(cat /target.txt) && \
   cargo build \
   --release \
@@ -58,74 +52,50 @@ RUN RUST_TARGET=$(cat /target.txt) && \
   --config 'profile.release.strip = true' && \
   cp target/${RUST_TARGET}/release/mcp-server-as-http-core /mcp-http-server
 
-# Stage 2: Download code-sandbox-mcp binary
-FROM --platform=${BUILDPLATFORM} alpine:latest AS binary-downloader
+# Stage 2: Runtime with Go environment
+# Using golang:alpine for optimized Go toolchain (latest version)
+FROM golang:alpine
 
-ARG TARGETPLATFORM
-
-# Install minimal tools
-RUN apk add --no-cache curl jq
-
-# Determine download architecture
-RUN case "${TARGETPLATFORM}" in \
-  "linux/amd64") echo "linux-amd64" > /arch.txt ;; \
-  "linux/arm64") echo "linux-arm64" > /arch.txt ;; \
-  *) echo "Unsupported: ${TARGETPLATFORM}" && exit 1 ;; \
-  esac
-
-# Download latest binary
-RUN ARCH=$(cat /arch.txt) && \
-  URL=$(curl -s https://api.github.com/repos/Automata-Labs-team/code-sandbox-mcp/releases/latest | \
-  jq -r ".assets[] | select(.name | contains(\"code-sandbox-mcp-${ARCH}\")) | .browser_download_url") && \
-  echo "Downloading: $URL" && \
-  curl -L "$URL" -o /code-sandbox-mcp && \
-  chmod +x /code-sandbox-mcp
-
-# Stage 3: Minimal runtime
-FROM alpine:latest
-
-# Install minimal runtime dependencies
+# Install runtime dependencies and ensure proper Docker setup
 RUN apk add --no-cache \
   curl \
   docker-cli \
   ca-certificates \
-  nodejs \
-  npm \
+  git \
   su-exec \
-  && rm -rf /var/cache/apk/* \
-  && addgroup -g 1001 -S mcpuser \
-  && adduser -S mcpuser -u 1001 -G mcpuser
+  && addgroup docker \
+  && addgroup -g 1001 mcpuser \
+  && adduser -S mcpuser -u 1001 -G mcpuser \
+  && addgroup mcpuser docker \
+  && mkdir -p /tmp/mcp-servers \
+  && chown -R mcpuser:mcpuser /tmp/mcp-servers
 
 WORKDIR /app
 
-# Copy binaries
+# Copy the Rust HTTP server binary
 COPY --from=rust-builder /mcp-http-server ./mcp-http-server
-COPY --from=binary-downloader /code-sandbox-mcp ./code-sandbox-mcp
 
 # Copy MCP configuration file
-COPY ${MCP_CONFIG_FILE} ./
+COPY mcp_servers.config.json ./mcp_servers.config.json
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh ./
+# Copy minimal entrypoint script
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
-# Setup permissions
-RUN chmod +x ./mcp-http-server ./code-sandbox-mcp ./docker-entrypoint.sh && \
-  mkdir -p /tmp/mcp-servers && \
-  chown -R mcpuser:mcpuser /app /tmp/mcp-servers
+# Setup permissions and working directories
+RUN chmod +x ./mcp-http-server ./docker-entrypoint.sh && \
+  chown -R mcpuser:mcpuser /app
 
-# Minimal environment
-#ENV MCP_CONFIG_FILE=mcp_servers.config.json \
-#    MCP_SERVER_NAME=code-sandbox \
-#    MCP_RUNTIME_TYPE=node \
-#    PORT=3000 \
-#    DOCKER_HOST=unix:///var/run/docker.sock \
-#    RUST_LOG=info
+# Note: Start as root for Docker socket permission setup
+# Will switch to mcpuser automatically in entrypoint
+# USER mcpuser  # Handled by entrypoint
 
-# Port will be dynamically set by docker-compose
-# EXPOSE 3000
+# Expose port (dynamically configured via PORT environment variable)
+EXPOSE ${PORT:-3000}
 
+# Health check for container monitoring
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
+# Start with minimal entrypoint for Docker permission handling
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["./mcp-http-server"]
