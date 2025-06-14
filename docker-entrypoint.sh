@@ -40,6 +40,21 @@ if [ "$(id -u)" = "0" ]; then
         echo "🔍 Testing Docker access..."
         if su-exec mcpuser docker version >/dev/null 2>&1; then
             echo "✅ Docker access confirmed"
+            
+            # Pre-pull commonly used images for faster sandbox initialization
+            echo "🔄 Pre-pulling common Docker images for faster sandbox startup..."
+            su-exec mcpuser docker pull node:latest >/dev/null 2>&1 &
+            su-exec mcpuser docker pull python:latest >/dev/null 2>&1 &
+            su-exec mcpuser docker pull rust:latest >/dev/null 2>&1 &
+            su-exec mcpuser docker pull alpine:latest >/dev/null 2>&1 &
+            
+            # Wait for background pulls to complete
+            wait
+            echo "✅ Pre-pull completed: node, python, rust, alpine"
+            
+            # Display pulled images for confirmation
+            echo "📋 Available images:"
+            su-exec mcpuser docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" | grep -E "(node|python|rust|alpine).*latest" || echo "   (Images are being pulled in background)"
         else
             echo "⚠️  Docker access test failed, but continuing..."
         fi
