@@ -39,7 +39,7 @@ ENV RUSTFLAGS="-C target-feature=+crt-static" \
 WORKDIR /build
 
 # Clone the latest HTTP core from GitHub
-RUN git clone https://github.com/yonaka15/mcp-server-as-http-core.git .
+RUN git clone --branch v0.1.1 https://github.com/yonaka15/mcp-server-as-http-core.git .
 
 # Build optimized Rust binary
 RUN RUST_TARGET=$(cat /target.txt) && \
@@ -75,8 +75,8 @@ WORKDIR /app
 # Copy the Rust HTTP server binary
 COPY --from=rust-builder /mcp-http-server ./mcp-http-server
 
-# Copy MCP configuration file
-COPY mcp_servers.config.json ./mcp_servers.config.json
+# Copy configuration files
+COPY *.config.json ./
 
 # Copy minimal entrypoint script
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
