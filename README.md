@@ -2,9 +2,10 @@
 
 A **lightweight** HTTP server that provides RESTful API access to [`code-sandbox-mcp`](https://github.com/Automata-Labs-team/code-sandbox-mcp) (Go) using [`mcp-server-as-http-core`](https://github.com/yonaka15/mcp-server-as-http-core) (Rust).
 
-> **⚡ Lightweight**: Minimal Alpine-based image with Go binary execution
+> **⚡ Lightweight**: Minimal Alpine-based image with Go binary execution  
 > **🌐 HTTP API**: Transform MCP tools into accessible HTTP endpoints  
-> **🔧 Simple**: Docker + Rust HTTP Core + Go MCP Binary
+> **🔧 Simple**: Docker + Rust HTTP Core + Go MCP Binary  
+> **🚀 Ultra-Fast Startup**: Direct binary execution with no overhead
 
 ## 🏗️ Architecture
 
@@ -34,6 +35,8 @@ HTTP Request (JSON-RPC) → MCP HTTP Server → Direct Process Spawn → code-sa
 # Clone and start
 git clone https://github.com/yonaka15/mcp-server-as-go.git
 cd mcp-server-as-go
+
+# Start services (automatic Docker permission handling)
 docker-compose up -d
 
 # Test health
@@ -124,7 +127,7 @@ curl -X POST http://localhost:3000/api/v1 \
 | `HTTP_API_KEY` | - | Optional Bearer token for authentication |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker daemon socket |
 
-**Note**: `MCP_RUNTIME_TYPE` was removed in v2.0 - no longer needed!
+**Note**: Docker permissions are handled automatically in the container!
 
 ## 🔧 Available Tools (Go MCP)
 
