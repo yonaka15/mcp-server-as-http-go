@@ -1,6 +1,12 @@
 # Environment files
 .env
 .env.local
+.env.github.bak
+.env.*.bak
+
+# Configuration backups
+*.config.json.bak
+mcp_*.config.json.bak
 
 # Docker build artifacts
 .dockerignore
@@ -22,3 +28,8 @@
 volumes/
 data/
 cache/
+
+# Built binaries
+github-mcp-server
+code-sandbox-mcp
+*.exe

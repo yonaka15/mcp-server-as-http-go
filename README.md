@@ -1,65 +1,81 @@
-# MCP HTTP Server - Code Sandbox (Go)
+# MCP HTTP Server - Universal MCP Bridge
 
-A **lightweight** HTTP server that provides RESTful API access to [`code-sandbox-mcp`](https://github.com/Automata-Labs-team/code-sandbox-mcp) (Go) using [`mcp-server-as-http-core`](https://github.com/yonaka15/mcp-server-as-http-core) (Rust).
+A **universal** HTTP server that provides RESTful API access to any [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server using [`mcp-server-as-http-core`](https://github.com/yonaka15/mcp-server-as-http-core) (Rust). **Defaults to GitHub MCP Server** with support for multiple MCP servers.
 
-> **⚡ Lightweight**: Minimal Alpine-based image with Go binary execution  
-> **🌐 HTTP API**: Transform MCP tools into accessible HTTP endpoints  
-> **🔧 Simple**: Docker + Rust HTTP Core + Go MCP Binary  
-> **🚀 Ultra-Fast Startup**: Direct binary execution with no overhead
+> **🌐 Universal**: Support for any MCP server (GitHub, Code Sandbox, and more)  
+> **⚡ Lightweight**: Minimal Alpine-based images (55-85MB)  
+> **🐙 GitHub First**: Optimized for GitHub MCP Server by default  
+> **🔧 Flexible**: Easy switching between different MCP servers  
+> **🚀 Fast**: Direct binary execution with no overhead
 
 ## 🏗️ Architecture
 
 ```
-mcp-server-as-go/
-├── Dockerfile                  # HTTP Core + Go Binary
-├── docker-compose.yml          # Simple configuration
-├── mcp_servers.config.json     # Go binary configuration
-├── .env.example                # Minimal environment
-└── README.md                   # This file
+mcp-http-server/
+├── Dockerfile.github           # GitHub MCP optimized (55MB)
+├── Dockerfile                  # Universal (65MB) 
+├── Dockerfile.code-sandbox     # Code Sandbox (85MB)
+├── docker-compose.github.yml   # GitHub MCP (recommended)
+├── docker-compose.yml          # Universal configuration
+├── mcp_servers.config.json     # Default: GitHub MCP Server
+├── mcp_code-sandbox.config.json # Code Sandbox configuration
+├── .env                        # Default: GitHub settings
+└── USAGE.md                    # Detailed usage guide
 ```
 
 **Components:**
 - **HTTP Core**: Rust binary for HTTP/JSON-RPC bridge (~10MB)
-- **Code Sandbox**: Pre-built Go binary for secure execution (~15MB)  
-- **Runtime**: Alpine Linux with Docker CLI + minimal Node.js (~85MB total)
-- **Bridge**: **Direct process execution** - language agnostic protocol bridge
+- **GitHub MCP**: Official GitHub MCP Server binary (~15MB)  
+- **Runtime**: Alpine Linux with Go environment (~40MB base)
+- **Bridge**: **Direct process execution** - language agnostic protocol
 
-**v2.0+ Simplified Flow:**
+**Universal Flow:**
 ```
-HTTP Request (JSON-RPC) → MCP HTTP Server → Direct Process Spawn → code-sandbox-mcp → JSON-RPC Response → HTTP Response
+HTTP Request (JSON-RPC) → MCP HTTP Server → Direct Process Spawn → Any MCP Server → JSON-RPC Response → HTTP Response
 ```
 
 ## 🚀 Quick Start
 
-```bash
-# Clone and start
-git clone https://github.com/yonaka15/mcp-server-as-go.git
-cd mcp-server-as-go
+### GitHub MCP Server (Default & Recommended)
 
-# Start services (automatic Docker permission handling)
-docker-compose up -d
+```bash
+# Clone repository
+git clone https://github.com/yonaka15/mcp-http-server.git
+cd mcp-http-server
+
+# Set your GitHub token
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-github-token"
+
+# Start GitHub MCP Server (lightest & fastest)
+docker-compose -f docker-compose.github.yml up -d
 
 # Test health
 curl -f http://localhost:3000/health
 
-# List available tools
+# List GitHub tools
 curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}"}'
 ```
 
-## 🛠️ HTTP API
+### Other MCP Servers
 
-### List Available Tools
 ```bash
-curl -X POST http://localhost:3000/api/v1 \
-  -H "Content-Type: application/json" \
-  -d '{"command": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}"}'
+# Code Sandbox MCP Server
+cp .env.code-sandbox .env
+docker-compose -f docker-compose.code-sandbox.yml up -d
+
+# Universal (supports multiple servers)
+docker-compose up -d
 ```
 
-### Initialize Sandbox
+## 🛠️ GitHub MCP Server API Examples
+
+### Get Your GitHub Profile
 ```bash
 curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "{
@@ -67,16 +83,17 @@ curl -X POST http://localhost:3000/api/v1 \
       \"id\": 1,
       \"method\": \"tools/call\",
       \"params\": {
-        \"name\": \"sandbox_initialize\",
-        \"arguments\": {\"image\": \"python:3.12-slim\"}
+        \"name\": \"get_me\",
+        \"arguments\": {}
       }
     }"
   }'
 ```
 
-### Execute Code
+### List Repository Issues
 ```bash
 curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "{
@@ -84,19 +101,21 @@ curl -X POST http://localhost:3000/api/v1 \
       \"id\": 2,
       \"method\": \"tools/call\",
       \"params\": {
-        \"name\": \"sandbox_exec\",
+        \"name\": \"list_issues\",
         \"arguments\": {
-          \"container_id\": \"your-container-id\",
-          \"commands\": [\"python -c \\\"print('Hello from Go MCP!')\\\"\"]
+          \"owner\": \"your-username\",
+          \"repo\": \"your-repo\",
+          \"state\": \"open\"
         }
       }
     }"
   }'
 ```
 
-### Write File to Sandbox
+### Create New Issue
 ```bash
 curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "{
@@ -104,11 +123,34 @@ curl -X POST http://localhost:3000/api/v1 \
       \"id\": 3,
       \"method\": \"tools/call\",
       \"params\": {
-        \"name\": \"write_file_sandbox\",
+        \"name\": \"create_issue\",
         \"arguments\": {
-          \"container_id\": \"your-container-id\",
-          \"file_name\": \"hello.py\",
-          \"file_contents\": \"print('Hello from sandbox file!')\"
+          \"owner\": \"your-username\",
+          \"repo\": \"your-repo\",
+          \"title\": \"New feature request\",
+          \"body\": \"Description of the feature...\"
+        }
+      }
+    }"
+  }'
+```
+
+### Get File Contents
+```bash
+curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "{
+      \"jsonrpc\": \"2.0\",
+      \"id\": 4,
+      \"method\": \"tools/call\",
+      \"params\": {
+        \"name\": \"get_file_contents\",
+        \"arguments\": {
+          \"owner\": \"your-username\",
+          \"repo\": \"your-repo\",
+          \"path\": \"README.md\"
         }
       }
     }"
@@ -117,49 +159,113 @@ curl -X POST http://localhost:3000/api/v1 \
 
 ## ⚙️ Configuration
 
+### Core Settings
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_SERVER_NAME` | `code-sandbox` | MCP server name from config |
+| `MCP_SERVER_NAME` | `github` | MCP server name from config |
 | `MCP_CONFIG_FILE` | `mcp_servers.config.json` | MCP server configuration file |
 | `PORT` | `3000` | HTTP server port |
-| `DISABLE_AUTH` | `true` | Disable authentication for simplicity |
+| `HTTP_API_KEY` | - | Bearer token for authentication |
+| `DISABLE_AUTH` | `false` | Enable/disable authentication |
 | `RUST_LOG` | `info` | Log level (error, warn, info, debug, trace) |
-| `HTTP_API_KEY` | - | Optional Bearer token for authentication |
-| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker daemon socket |
 
-**Note**: Docker permissions are handled automatically in the container!
+### GitHub MCP Server Settings
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | - | **Required** GitHub PAT |
+| `GITHUB_TOOLSETS` | `all` | Available toolsets (repos,issues,pull_requests,etc.) |
+| `GITHUB_READ_ONLY` | `false` | Enable read-only mode |
+| `GITHUB_DYNAMIC_TOOLSETS` | `false` | Enable dynamic toolset discovery |
+| `GITHUB_HOST` | - | GitHub Enterprise Server hostname |
 
-## 🔧 Available Tools (Go MCP)
+## 🔧 Available GitHub Tools
 
-- **`sandbox_initialize`**: Create isolated Docker container for code execution
-- **`sandbox_exec`**: Execute shell commands in container
-- **`copy_project`**: Copy local directories to container filesystem
-- **`write_file_sandbox`**: Write files directly to container
-- **`copy_file`**: Copy single files to container
-- **`copy_file_from_sandbox`**: Copy files from container to local
-- **`sandbox_stop`**: Stop and remove container with cleanup
+### Repository Management
+- **`get_file_contents`**: Get file/directory contents
+- **`create_or_update_file`**: Create or update files
+- **`list_branches`**: List repository branches
+- **`create_branch`**: Create new branch
+- **`list_commits`**: Get commit history
+- **`get_commit`**: Get commit details
+- **`search_repositories`**: Search repositories
+- **`create_repository`**: Create new repository
+- **`fork_repository`**: Fork repository
 
-## 🐳 Docker Features
+### Issue Management
+- **`list_issues`**: List and filter issues
+- **`get_issue`**: Get issue details
+- **`create_issue`**: Create new issue
+- **`update_issue`**: Update existing issue
+- **`add_issue_comment`**: Add issue comment
+- **`get_issue_comments`**: Get issue comments
+- **`search_issues`**: Search issues and PRs
 
-- **Multi-language Support**: Python, Go, Node.js, and custom Docker images
-- **Container Isolation**: Each sandbox runs in isolated Docker container
-- **Resource Management**: Automatic cleanup and resource limits
-- **File Operations**: Bidirectional file transfer between host and containers
-- **Real-time Logging**: Container logs accessible via HTTP API
+### Pull Request Operations
+- **`list_pull_requests`**: List pull requests
+- **`get_pull_request`**: Get PR details
+- **`create_pull_request`**: Create new PR
+- **`update_pull_request`**: Update existing PR
+- **`merge_pull_request`**: Merge pull request
+- **`get_pull_request_files`**: Get changed files
+- **`get_pull_request_reviews`**: Get PR reviews
+- **`create_pull_request_review`**: Create PR review
 
-## 📦 Image Size
+### Security & Code Analysis
+- **`list_code_scanning_alerts`**: List code scanning alerts
+- **`get_code_scanning_alert`**: Get specific alert
+- **`list_secret_scanning_alerts`**: List secret scanning alerts
+- **`get_secret_scanning_alert`**: Get specific secret alert
 
-- **Total**: ~85MB (Alpine + Rust HTTP Core + Go MCP Binary + minimal Node.js)
-- **Memory**: 128-256MB runtime usage
-- **CPU**: 0.1-0.3 cores typical usage
+### User & Search
+- **`get_me`**: Get authenticated user details
+- **`search_users`**: Search GitHub users
+- **`search_code`**: Search code across repositories
 
-## 🚀 Production
+## 🐳 Deployment Options
 
+### 1. GitHub MCP Only (Recommended)
 ```bash
-# With authentication
-HTTP_API_KEY=your-secret-key DISABLE_AUTH=false docker-compose up -d
+# Lightest option: ~55MB, no Docker CLI
+docker-compose -f docker-compose.github.yml up -d
+```
 
-# Health monitoring
+### 2. Universal Support
+```bash
+# Supports multiple MCP servers: ~65MB
+docker-compose up -d
+```
+
+### 3. Code Sandbox
+```bash
+# Full Docker support: ~85MB
+cp .env.code-sandbox .env
+docker-compose -f docker-compose.code-sandbox.yml up -d
+```
+
+## 📦 Image Sizes & Performance
+
+| Configuration | Image Size | Memory Usage | Startup Time | Use Case |
+|---------------|------------|--------------|--------------|----------|
+| **GitHub Only** | ~55MB | 64-128MB | ~2s | GitHub integration only |
+| **Universal** | ~65MB | 64-128MB | ~3s | Multiple MCP servers |
+| **Code Sandbox** | ~85MB | 128-256MB | ~5s | Code execution + GitHub |
+
+## 🚀 Production Deployment
+
+### With Authentication
+```bash
+# Set environment variables
+export HTTP_API_KEY="your-secret-api-key"
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-github-token"
+export DISABLE_AUTH=false
+
+# Deploy
+docker-compose -f docker-compose.github.yml up -d
+```
+
+### Health Monitoring
+```bash
+# Health check
 curl -f http://localhost:3000/health
 
 # View logs
@@ -169,148 +275,142 @@ docker-compose logs -f mcp-http-server
 docker stats mcp-http-server
 ```
 
+### Security Best Practices
+```bash
+# Use fine-grained GitHub PAT with minimal scopes
+# Enable read-only mode for monitoring use cases
+export GITHUB_READ_ONLY=true
+
+# Restrict toolsets to needed functionality
+export GITHUB_TOOLSETS="repos,issues"
+
+# Enable authentication
+export DISABLE_AUTH=false
+```
+
 ## 🔒 Security
 
-- **Container Isolation**: Code executes in isolated Docker containers
-- **Non-root Execution**: All processes run as non-root user
-- **Docker Socket**: Read-only mount for container management
-- **Optional Authentication**: Bearer token support
+### GitHub Integration
+- **Fine-grained PAT**: Use minimal required scopes
+- **Read-only Mode**: `GITHUB_READ_ONLY=true` for safer operations
+- **Toolset Restriction**: Limit available tools via `GITHUB_TOOLSETS`
+- **Enterprise Support**: Custom `GITHUB_HOST` for GitHub Enterprise
+
+### HTTP Server
+- **Bearer Authentication**: `HTTP_API_KEY` protection
+- **Non-root Execution**: All processes run as unprivileged user
+- **HTTPS Ready**: Production deployment with reverse proxy
+- **CORS Support**: Configurable cross-origin requests
+
+### Container Security
+- **Minimal Attack Surface**: Alpine-based images
+- **No Docker Socket**: GitHub MCP doesn't require Docker access
 - **Resource Limits**: CPU and memory constraints
-- **Network Isolation**: Containers have limited network access
+- **Health Checks**: Built-in monitoring
 
 ## 🎯 Use Cases
 
-- **AI Code Execution**: Let AI models safely run and test code
-- **Educational Platforms**: Secure code execution for learning environments
-- **CI/CD Integration**: Automated code testing in isolated environments
-- **API Testing**: HTTP endpoints for code execution workflows
-- **Development Tools**: Remote code execution capabilities
+### AI-Powered Development
+- **GitHub Copilot Integration**: Enhanced context with live GitHub data
+- **Code Review Automation**: AI agents analyzing PRs and issues
+- **Repository Analysis**: AI-driven insights from GitHub data
+- **Automated Workflows**: AI triggering GitHub actions
+
+### Developer Tools
+- **IDE Extensions**: GitHub integration for editors
+- **CLI Tools**: Command-line GitHub operations
+- **Dashboard Creation**: Custom GitHub analytics
+- **Notification Systems**: Real-time GitHub event processing
+
+### Enterprise Integration
+- **GitHub Enterprise**: Connect to self-hosted GitHub
+- **Monitoring Dashboards**: Repository health monitoring
+- **Compliance Tools**: Security and audit automation
+- **Development Metrics**: Team productivity analytics
 
 ## 🔍 API Response Examples
 
-### Tools List Response
-```json
-{
-  "result": {
-    "tools": [
-      {
-        "name": "sandbox_initialize",
-        "description": "Initialize a new compute environment for code execution"
-      },
-      {
-        "name": "sandbox_exec", 
-        "description": "Execute commands in the sandboxed environment"
-      }
-    ]
-  }
-}
-```
-
-### Sandbox Initialize Response
+### GitHub User Profile
 ```json
 {
   "result": {
     "content": [
       {
         "type": "text",
-        "text": "Container initialized successfully with ID: abc123def456"
+        "text": "User: octocat\nName: The Octocat\nPublic repos: 8\nFollowers: 9999"
       }
     ]
   }
 }
 ```
 
-## 📋 Change Log
-
-### v2.0.0 - 2025-06-13 - **Major Architecture Simplification**
-
-**🎯 BREAKING CHANGE: Removed Runtime Type Dependency**
-
-Previously, the MCP HTTP Core required specifying a runtime type (`node`, `python`, `go`, `binary`) which was architecturally incorrect for a protocol bridge.
-
-#### What Changed:
-- **Removed `MCP_RUNTIME_TYPE` environment variable** - No longer needed
-- **Eliminated runtime abstraction layer** - Direct process execution
-- **Deleted `src/runtime.rs` file** - 370+ lines of unnecessary code removed
-- **Simplified configuration** - Only server name and command needed
-- **Reduced codebase by 60%+** - Removed entire runtime module
-- **True protocol neutrality** - Works with any MCP server regardless of language
-
-#### Why This Change:
-```diff
-- HTTP Request → Runtime Selection → Environment Setup → Process Spawn → MCP Server
-+ HTTP Request → Direct Process Spawn → MCP Server
+### Repository Issues
+```json
+{
+  "result": {
+    "content": [
+      {
+        "type": "text", 
+        "text": "Found 3 open issues:\n#1: Bug in login\n#2: Feature request\n#3: Documentation update"
+      }
+    ]
+  }
+}
 ```
 
-**Before (v1.x):**
+## 📋 Switching Between MCP Servers
+
+### To Code Sandbox
 ```bash
-# Required runtime specification
-MCP_RUNTIME_TYPE=node  # or python, go, binary
-MCP_SERVER_NAME=code-sandbox
+# Backup current config
+cp .env .env.github.bak
+cp mcp_servers.config.json mcp_github.config.json.bak
+
+# Switch to Code Sandbox
+cp .env.code-sandbox .env
+cp mcp_code-sandbox.config.json mcp_servers.config.json
+
+# Restart with Code Sandbox
+docker-compose down
+docker-compose -f docker-compose.code-sandbox.yml up -d
 ```
 
-**After (v2.0+):**
+### Back to GitHub
 ```bash
-# Runtime type completely removed
-MCP_SERVER_NAME=code-sandbox
+# Restore GitHub config
+cp .env.github.bak .env
+cp mcp_github.config.json.bak mcp_servers.config.json
+
+# Restart with GitHub MCP
+docker-compose down
+docker-compose -f docker-compose.github.yml up -d
 ```
 
-#### Technical Rationale:
-1. **MCP is a Protocol**: Like LSP (Language Server Protocol), MCP uses stdin/stdout communication and doesn't need runtime-specific handling
-2. **HTTP Bridge Role**: The core server's job is to bridge HTTP ↔ JSON-RPC, not manage language environments
-3. **Simplified Maintenance**: Eliminates complex runtime setup code that was never actually needed
-4. **Better Performance**: Direct process execution without unnecessary abstraction layers
+## 🛡️ Technical Architecture
 
-#### Migration Guide:
-```bash
-# Remove this line from your .env file:
-- MCP_RUNTIME_TYPE=binary
-
-# Remove from docker-compose.yml:
-- MCP_RUNTIME_TYPE=${MCP_RUNTIME_TYPE}
-
-# That's it! The server now works with any MCP-compatible executable
-```
-
-#### Architecture Comparison:
-
-**v1.x (Complex):**
-```
-HTTP → Runtime Factory → Node/Python/Go/Binary Runtime → Environment Setup → Process
-```
-
-**v2.0+ (Simple):**
-```
-HTTP → Direct Process Execution → MCP Server
-```
-
-**Result**: Cleaner, faster, more maintainable, and truly language-agnostic! 🎉
-
----
-
-### v1.x - Legacy Runtime-Based Architecture
-- Multi-runtime support (Node.js, Python, Go, Binary)
-- Complex runtime environment setup
-- Repository cloning and build capabilities
-- Language-specific configuration handling
-
----
-
-## 🛡️ Technical Details
-
-### Direct Process Bridge (v2.0+)
+### HTTP Bridge (Universal)
 - **HTTP Core**: Built with Rust + Axum for high performance
-- **MCP Bridge**: Converts HTTP requests to JSON-RPC MCP protocol
-- **Process Execution**: Direct spawn of MCP server executable
-- **Protocol Agnostic**: Works with any language that implements MCP over stdin/stdout
-- **No Runtime Dependencies**: Eliminates Node.js/Python/Go environment requirements
+- **MCP Bridge**: Converts HTTP requests to JSON-RPC MCP protocol  
+- **Process Execution**: Direct spawn of any MCP server executable
+- **Protocol Agnostic**: Works with any language implementing MCP over stdin/stdout
+- **Zero Runtime Dependencies**: No Node.js/Python/Go runtime requirements
 
-### Container Management
-- **Docker API**: Direct communication with Docker daemon
-- **Lifecycle Management**: Automatic container creation and cleanup
-- **Image Flexibility**: Support for any Docker base image
-- **Resource Control**: Configurable CPU and memory limits
+### GitHub MCP Integration
+- **Official Server**: Uses GitHub's official MCP server
+- **Real-time API**: Direct GitHub API integration
+- **OAuth Support**: Secure authentication with GitHub
+- **Fine-grained Permissions**: Granular access control
+- **Enterprise Ready**: GitHub Enterprise Server support
+
+### Scalability
+- **Stateless Design**: Easy horizontal scaling
+- **Resource Efficient**: Minimal memory footprint
+- **Fast Startup**: Sub-second cold starts
+- **Health Monitoring**: Built-in health checks
+- **Graceful Shutdown**: Proper cleanup on termination
 
 ---
 
-**Lightweight • Secure • Go-Powered**
+**Universal • Secure • GitHub-First**
+
+For detailed usage instructions, see [USAGE.md](USAGE.md).

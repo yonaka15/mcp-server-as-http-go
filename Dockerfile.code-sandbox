@@ -1,5 +1,5 @@
-# MCP HTTP Server - Universal MCP Server Runner
-# Single container with Rust HTTP Core + Go environment for various MCP servers
+# MCP HTTP Server - Code Sandbox Specific
+# Container with Rust HTTP Core + Go environment + Docker for code-sandbox-mcp
 
 # Stage 1: Rust builder for HTTP core
 FROM --platform=${BUILDPLATFORM} rust:alpine AS rust-builder
@@ -52,35 +52,22 @@ RUN RUST_TARGET=$(cat /target.txt) && \
   --config 'profile.release.strip = true' && \
   cp target/${RUST_TARGET}/release/mcp-server-as-http-core /mcp-http-server
 
-# Stage 2: Runtime with Go environment
-# Using golang:alpine for optimized Go toolchain (latest version)
+# Stage 2: Runtime with Go environment and Docker
 FROM golang:alpine
 
-# Install runtime dependencies
+# Install runtime dependencies including Docker CLI for code-sandbox
 RUN apk add --no-cache \
   curl \
+  docker-cli \
   ca-certificates \
   git \
-  su-exec
-
-# Conditionally install Docker CLI for code-sandbox MCP servers
-# This can be enabled by setting ENABLE_DOCKER=true during build
-ARG ENABLE_DOCKER=false
-RUN if [ "$ENABLE_DOCKER" = "true" ]; then \
-  apk add --no-cache docker-cli && \
-  addgroup docker; \
-  fi
-
-# Create mcpuser and setup directories
-RUN addgroup -g 1001 mcpuser && \
-  adduser -S mcpuser -u 1001 -G mcpuser && \
-  mkdir -p /tmp/mcp-servers && \
-  chown -R mcpuser:mcpuser /tmp/mcp-servers
-
-# Add mcpuser to docker group if Docker is enabled
-RUN if [ "$ENABLE_DOCKER" = "true" ]; then \
-  addgroup mcpuser docker; \
-  fi
+  su-exec \
+  && addgroup docker \
+  && addgroup -g 1001 mcpuser \
+  && adduser -S mcpuser -u 1001 -G mcpuser \
+  && addgroup mcpuser docker \
+  && mkdir -p /tmp/mcp-servers \
+  && chown -R mcpuser:mcpuser /tmp/mcp-servers
 
 WORKDIR /app
 
@@ -90,20 +77,20 @@ COPY --from=rust-builder /mcp-http-server ./mcp-http-server
 # Copy configuration files
 COPY *.config.json ./
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
+# Copy code-sandbox specific entrypoint
+COPY docker-entrypoint-code-sandbox.sh ./docker-entrypoint.sh
 
 # Setup permissions
 RUN chmod +x ./mcp-http-server ./docker-entrypoint.sh && \
   chown -R mcpuser:mcpuser /app
 
-# Expose port (dynamically configured via PORT environment variable)
+# Expose port
 EXPOSE ${PORT:-3000}
 
-# Health check for container monitoring
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
-# Start with entrypoint for flexible initialization
+# Start with code-sandbox specific entrypoint
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["./mcp-http-server"]

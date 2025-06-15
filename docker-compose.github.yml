@@ -4,17 +4,12 @@ services:
   mcp-http-server:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        # Enable Docker only if using code-sandbox MCP servers
-        ENABLE_DOCKER: ${ENABLE_DOCKER:-false}
+      dockerfile: Dockerfile.github
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file:
       - .env
     environment:
-      # Docker host only needed for code-sandbox servers
-      - DOCKER_HOST=${DOCKER_HOST:-}
       # GitHub MCP Server specific environment variables
       - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
       - GITHUB_TOOLSETS=${GITHUB_TOOLSETS:-}
@@ -22,8 +17,6 @@ services:
       - GITHUB_DYNAMIC_TOOLSETS=${GITHUB_DYNAMIC_TOOLSETS:-false}
       - GITHUB_HOST=${GITHUB_HOST:-}
     volumes:
-      # Docker socket only mounted if ENABLE_DOCKER=true
-      - ${DOCKER_SOCKET_PATH:-/dev/null}:${DOCKER_SOCKET_MOUNT:-/dev/null}
       - mcp_cache:/tmp/mcp-servers:rw
     restart: unless-stopped
 

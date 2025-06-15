@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  mcp-http-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.code-sandbox
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    env_file:
+      - .env.code-sandbox
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - mcp_cache:/tmp/mcp-servers:rw
+    restart: unless-stopped
+
+volumes:
+  mcp_cache:
+    driver: local
