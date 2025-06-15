@@ -3,7 +3,7 @@
   "servers": {
     "code-sandbox": {
       "repository": "https://github.com/Automata-Labs-team/code-sandbox-mcp.git",
-      "build_command": "cd src/code-sandbox-mcp && timeout 300 go mod tidy && timeout 300 go build -o ../../code-sandbox-mcp .",
+      "build_command": "cd src/code-sandbox-mcp && go mod tidy && go build -o ../../code-sandbox-mcp .",
       "command": "./code-sandbox-mcp",
       "args": []
     }
